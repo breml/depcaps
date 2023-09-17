@@ -13,14 +13,16 @@ import (
 
 func TestAll(t *testing.T) {
 	tt := []struct {
-		name         string
-		analyzerFunc func() *analysis.Analyzer
-		testdataDir  string
+		name           string
+		analyzerFunc   func(depcaps.LinterSettings) *analysis.Analyzer
+		linterSettings depcaps.LinterSettings
+		testdataDir    string
 	}{
 		{
-			name:         "simple",
-			analyzerFunc: depcaps.NewAnalyzer,
-			testdataDir:  "simple",
+			name:           "simple",
+			analyzerFunc:   depcaps.NewAnalyzer,
+			linterSettings: depcaps.LinterSettings{},
+			testdataDir:    "simple",
 		},
 	}
 
@@ -45,7 +47,7 @@ func TestAll(t *testing.T) {
 				}
 			}()
 
-			analysistest.Run(t, testCaseDir, tc.analyzerFunc(), ".")
+			analysistest.Run(t, testCaseDir, tc.analyzerFunc(tc.linterSettings), ".")
 		})
 	}
 }

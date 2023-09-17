@@ -13,20 +13,14 @@ import (
 	"github.com/breml/depcaps/pkg/module"
 )
 
-const (
-	doc = "depcaps maps capabilities of dependencies agains a set of allowed capabilities"
-)
-
 type depcaps struct {
-	globalAllowedCapabilities  map[proto.Capability]struct{}
-	packageAllowedCapabilities map[string]map[proto.Capability]struct{}
+	*LinterSettings
 }
 
 // NewAnalyzer returns a new depcaps analyzer.
-func NewAnalyzer() *analysis.Analyzer {
+func NewAnalyzer(settings LinterSettings) *analysis.Analyzer {
 	depcaps := depcaps{
-		globalAllowedCapabilities:  make(map[proto.Capability]struct{}),
-		packageAllowedCapabilities: make(map[string]map[proto.Capability]struct{}),
+		&settings,
 	}
 
 	// TODO: read from config file or CLI argument
@@ -36,14 +30,19 @@ func NewAnalyzer() *analysis.Analyzer {
 
 	a := &analysis.Analyzer{
 		Name: "depcaps",
-		Doc:  doc,
+		Doc:  "depcaps maps capabilities of dependencies agains a set of allowed capabilities",
 		Run:  depcaps.run,
 	}
 
 	a.Flags.Init("depcaps", flag.ExitOnError)
 	a.Flags.Var(versionFlag{}, "V", "print version and exit")
+	a.Flags.Var(depcaps.LinterSettings, "config", "depcaps linter settings config file")
 
 	return a
+}
+
+func (d *depcaps) Settings(settings LinterSettings) {
+	d.LinterSettings = &settings
 }
 
 func (d depcaps) run(pass *analysis.Pass) (interface{}, error) {
@@ -102,11 +101,11 @@ func (d depcaps) run(pass *analysis.Pass) (interface{}, error) {
 			continue
 		}
 
-		if _, ok := d.globalAllowedCapabilities[c.GetCapability()]; ok {
+		if ok := d.GlobalAllowedCapabilities[c.Capability.String()]; ok {
 			continue
 		}
-		if pkgAllowedCaps, ok := d.packageAllowedCapabilities[pkg]; ok {
-			if _, ok := pkgAllowedCaps[c.GetCapability()]; ok {
+		if pkgAllowedCaps, ok := d.PackageAllowedCapabilities[pkg]; ok {
+			if ok := pkgAllowedCaps[c.Capability.String()]; ok {
 				continue
 			}
 		}
