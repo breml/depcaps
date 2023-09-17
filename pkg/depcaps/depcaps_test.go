@@ -33,7 +33,19 @@ func TestAll(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			analysistest.Run(t, testdata, tc.analyzerFunc(), tc.testdataDir)
+			testCaseDir := filepath.Join(testdata, "src", tc.testdataDir)
+			err = os.Chdir(testCaseDir)
+			if err != nil {
+				t.Fatalf("Failed to change wd: %s", err)
+			}
+			defer func() {
+				err := os.Chdir(wd)
+				if err != nil {
+					t.Fatalf("Failed to return to wd: %s", err)
+				}
+			}()
+
+			analysistest.Run(t, testCaseDir, tc.analyzerFunc(), ".")
 		})
 	}
 }
