@@ -14,15 +14,77 @@ import (
 func TestAll(t *testing.T) {
 	tt := []struct {
 		name           string
-		analyzerFunc   func(depcaps.LinterSettings) *analysis.Analyzer
-		linterSettings depcaps.LinterSettings
+		analyzerFunc   func(*depcaps.LinterSettings) *analysis.Analyzer
+		linterSettings *depcaps.LinterSettings
 		testdataDir    string
 	}{
 		{
 			name:           "simple",
 			analyzerFunc:   depcaps.NewAnalyzer,
-			linterSettings: depcaps.LinterSettings{},
+			linterSettings: nil,
 			testdataDir:    "simple",
+		},
+		{
+			name:         "global allow",
+			analyzerFunc: depcaps.NewAnalyzer,
+			linterSettings: &depcaps.LinterSettings{
+				GlobalAllowedCapabilities: map[string]bool{
+					"CAPABILITY_FILES": true,
+				},
+			},
+			testdataDir: "allow",
+		},
+		{
+			name:         "package allow",
+			analyzerFunc: depcaps.NewAnalyzer,
+			linterSettings: &depcaps.LinterSettings{
+				PackageAllowedCapabilities: map[string]map[string]bool{
+					"github.com/google/uuid": {
+						"CAPABILITY_FILES": true,
+					},
+				},
+			},
+			testdataDir: "allow",
+		},
+		{
+			name:         "capslock file",
+			analyzerFunc: depcaps.NewAnalyzer,
+			linterSettings: &depcaps.LinterSettings{
+				CapslockBaselineFile: "capslock.json",
+			},
+			testdataDir: "capslockfile",
+		},
+		{
+			name:         "capslock file empty",
+			analyzerFunc: depcaps.NewAnalyzer,
+			linterSettings: &depcaps.LinterSettings{
+				CapslockBaselineFile: "capslock.json",
+			},
+			testdataDir: "capslockfileempty",
+		},
+		{
+			name:         "capslock file empty with global allow",
+			analyzerFunc: depcaps.NewAnalyzer,
+			linterSettings: &depcaps.LinterSettings{
+				GlobalAllowedCapabilities: map[string]bool{
+					"CAPABILITY_FILES": true,
+				},
+				CapslockBaselineFile: "capslock.json",
+			},
+			testdataDir: "capslockfileemptyallow",
+		},
+		{
+			name:         "capslock file empty with package allow",
+			analyzerFunc: depcaps.NewAnalyzer,
+			linterSettings: &depcaps.LinterSettings{
+				PackageAllowedCapabilities: map[string]map[string]bool{
+					"github.com/google/uuid": {
+						"CAPABILITY_FILES": true,
+					},
+				},
+				CapslockBaselineFile: "capslock.json",
+			},
+			testdataDir: "capslockfileemptyallow",
 		},
 	}
 

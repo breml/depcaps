@@ -1,0 +1,11 @@
+{
+	"capabilityInfo": [],
+	"packageInfo": [
+		{
+			"path": "github.com/google/uuid",
+			"ignoredFiles": [
+				"node_js.go"
+			]
+		}
+	]
+}

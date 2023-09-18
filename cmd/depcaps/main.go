@@ -21,7 +21,7 @@ var (
 func main() {
 	depcaps.Version = buildVersion()
 
-	singlechecker.Main(depcaps.NewAnalyzer(depcaps.LinterSettings{}))
+	singlechecker.Main(depcaps.NewAnalyzer(nil))
 }
 
 func buildVersion() string {

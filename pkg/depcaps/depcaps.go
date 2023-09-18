@@ -4,11 +4,14 @@ import (
 	"flag"
 	"fmt"
 	"go/token"
+	"os"
 	"strings"
 
 	"github.com/google/capslock/analyzer"
 	"github.com/google/capslock/proto"
 	"golang.org/x/tools/go/analysis"
+	"golang.org/x/tools/go/packages"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/breml/depcaps/pkg/module"
 )
@@ -18,15 +21,13 @@ type depcaps struct {
 }
 
 // NewAnalyzer returns a new depcaps analyzer.
-func NewAnalyzer(settings LinterSettings) *analysis.Analyzer {
+func NewAnalyzer(settings *LinterSettings) *analysis.Analyzer {
 	depcaps := depcaps{
-		&settings,
+		LinterSettings: &LinterSettings{
+			GlobalAllowedCapabilities:  map[string]bool{},
+			PackageAllowedCapabilities: map[string]map[string]bool{},
+		},
 	}
-
-	// TODO: read from config file or CLI argument
-	// depcaps.globalAllowedCapabilities[proto.Capability_CAPABILITY_ARBITRARY_EXECUTION] = struct{}{}
-	// depcaps.packageAllowedCapabilities["github.com/google/capslock/proto"] = make(map[proto.Capability]struct{})
-	// depcaps.packageAllowedCapabilities["github.com/google/capslock/proto"][proto.Capability_CAPABILITY_SYSTEM_CALLS] = struct{}{}
 
 	a := &analysis.Analyzer{
 		Name: "depcaps",
@@ -37,6 +38,13 @@ func NewAnalyzer(settings LinterSettings) *analysis.Analyzer {
 	a.Flags.Init("depcaps", flag.ExitOnError)
 	a.Flags.Var(versionFlag{}, "V", "print version and exit")
 	a.Flags.Var(depcaps.LinterSettings, "config", "depcaps linter settings config file")
+	a.Flags.StringVar(&depcaps.CapslockBaselineFile, "reference", "", "capslock capabilities reference file")
+
+	if settings != nil {
+		depcaps.GlobalAllowedCapabilities = settings.GlobalAllowedCapabilities
+		depcaps.PackageAllowedCapabilities = settings.PackageAllowedCapabilities
+		depcaps.CapslockBaselineFile = settings.CapslockBaselineFile
+	}
 
 	return a
 }
@@ -45,10 +53,46 @@ func (d *depcaps) Settings(settings LinterSettings) {
 	d.LinterSettings = &settings
 }
 
-func (d depcaps) run(pass *analysis.Pass) (interface{}, error) {
+func (d *depcaps) init() error {
+	if d.CapslockBaselineFile == "" {
+		return nil
+	}
+
+	baselineData, err := os.ReadFile(d.CapslockBaselineFile)
+	if err != nil {
+		return fmt.Errorf("Error reading baseline file: %v", err)
+	}
+	d.baseline = &proto.CapabilityInfoList{}
+	err = protojson.Unmarshal(baselineData, d.baseline)
+	if err != nil {
+		return fmt.Errorf("Baseline file should include output from running `capslock -output=j`. Error parsing baseline file: %v", err)
+	}
+	return nil
+}
+
+func (d *depcaps) run(pass *analysis.Pass) (interface{}, error) {
+	err := d.init()
+	if err != nil {
+		return nil, err
+	}
+
 	if isTestPackage(pass) {
 		return nil, nil
 	}
+
+	// init std pkg list
+	// TODO: move to sync.Once
+	stdPkgs, err := packages.Load(&packages.Config{Tests: false}, "std")
+	if err != nil {
+		return nil, err
+	}
+
+	stdSet := make(map[string]struct{})
+	pre := func(pkg *packages.Package) bool {
+		stdSet[pkg.PkgPath] = struct{}{}
+		return true
+	}
+	packages.Visit(stdPkgs, pre, nil)
 
 	packagePrefix := pass.Pkg.Path()
 
@@ -59,9 +103,8 @@ func (d depcaps) run(pass *analysis.Pass) (interface{}, error) {
 
 	packageNames := []string{pass.Pkg.Path()}
 
-	// TODO: decide on unanalyzed capabilities
-	// TODO: is it possible to create a middleware / wrapper for a classifier?
-	classifier := analyzer.GetClassifier(true)
+	var classifier analyzer.Classifier
+	classifier = analyzer.GetClassifier(true)
 
 	pkgs := analyzer.LoadPackages(packageNames,
 		analyzer.LoadConfig{
@@ -77,10 +120,14 @@ func (d depcaps) run(pass *analysis.Pass) (interface{}, error) {
 
 	queriedPackages := analyzer.GetQueriedPackages(pkgs)
 
-	offendingCapabilities := make(map[string]map[proto.Capability]struct{})
-
 	cil := analyzer.GetCapabilityInfo(pkgs, queriedPackages, classifier)
-	for _, c := range cil.CapabilityInfo {
+
+	offendingCapabilities := make(map[string]map[proto.Capability]struct{})
+	if d.baseline != nil {
+		offendingCapabilities = diffCapabilityInfoLists(d.baseline, cil, packagePrefix)
+	}
+
+	for _, c := range cil.GetCapabilityInfo() {
 		if c.GetCapabilityType() != proto.CapabilityType_CAPABILITY_TYPE_TRANSITIVE {
 			continue
 		}
@@ -90,28 +137,41 @@ func (d depcaps) run(pass *analysis.Pass) (interface{}, error) {
 		}
 
 		pathName := *c.GetPath()[1].Name
-		if strings.HasPrefix(pathName, packagePrefix) {
+		if strings.HasPrefix(pathName, "(") { // method
+			pathName = pathName[1:strings.LastIndex(pathName, ")")]
+		}
+		pathName = strings.TrimLeft(pathName, "*") // pointer receiver
+		if strings.HasPrefix(pathName, packagePrefix) || strings.HasPrefix("("+pathName, packagePrefix) {
 			// if we call an other package of our own module, we ignore this call here
 			// TODO: make this behavior configurable
 			continue
 		}
-		pkg := (pathName)[:strings.LastIndex(pathName, ".")]
+		pkg := pathName[:strings.LastIndex(pathName, ".")]
 
 		if len(pkg) == 0 {
 			continue
 		}
 
-		if ok := d.GlobalAllowedCapabilities[c.Capability.String()]; ok {
+		if _, ok := stdSet[pkg]; ok {
 			continue
-		}
-		if pkgAllowedCaps, ok := d.PackageAllowedCapabilities[pkg]; ok {
-			if ok := pkgAllowedCaps[c.Capability.String()]; ok {
-				continue
-			}
 		}
 
 		if _, ok := offendingCapabilities[pkg]; !ok {
 			offendingCapabilities[pkg] = make(map[proto.Capability]struct{})
+		}
+
+		if ok := d.GlobalAllowedCapabilities[c.Capability.String()]; ok {
+			delete(offendingCapabilities[pkg], c.GetCapability())
+			continue
+		}
+		if pkgAllowedCaps, ok := d.PackageAllowedCapabilities[pkg]; ok {
+			if ok := pkgAllowedCaps[c.Capability.String()]; ok {
+				delete(offendingCapabilities[pkg], c.GetCapability())
+				continue
+			}
+		}
+		if d.baseline != nil {
+			continue
 		}
 
 		offendingCapabilities[pkg][c.GetCapability()] = struct{}{}
