@@ -1,3 +1,6 @@
+//go:build !windows
+// +build !windows
+
 package depcaps_test
 
 import (
