@@ -112,8 +112,7 @@ func (d *depcaps) run(pass *analysis.Pass) (interface{}, error) {
 
 	packageNames := []string{pass.Pkg.Path()}
 
-	var classifier analyzer.Classifier
-	classifier = analyzer.GetClassifier(true)
+	var classifier analyzer.Classifier = analyzer.GetClassifier(true)
 
 	// TODO: can this be optimized, since we get the packages already from pass?
 	pkgs := analyzer.LoadPackages(packageNames,

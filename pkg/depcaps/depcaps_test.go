@@ -112,6 +112,8 @@ func TestAll(t *testing.T) {
 				}
 			}()
 
+			osSpecificLinterSettings(tc.linterSettings)
+
 			analysistest.Run(t, testCaseDir, tc.analyzerFunc(tc.linterSettings), ".")
 		})
 	}
