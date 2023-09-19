@@ -7,4 +7,6 @@ import (
 	"github.com/breml/depcaps/pkg/depcaps"
 )
 
-func osSpecificLinterSettings(*depcaps.LinterSettings) {}
+func osSpecificLinterSettings(linterSettings *depcaps.LinterSettings) *depcaps.LinterSettings {
+	return linterSettings
+}
