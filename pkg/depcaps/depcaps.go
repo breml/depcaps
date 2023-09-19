@@ -6,6 +6,7 @@ import (
 	"go/token"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/google/capslock/analyzer"
 	"github.com/google/capslock/proto"
@@ -40,6 +41,7 @@ func NewAnalyzer(settings *LinterSettings) *analysis.Analyzer {
 	a.Flags.Var(depcaps.LinterSettings, "config", "depcaps linter settings config file")
 	a.Flags.StringVar(&depcaps.CapslockBaselineFile, "reference", "", "capslock capabilities reference file")
 
+	// if settings are provided, these have precedence
 	if settings != nil {
 		depcaps.GlobalAllowedCapabilities = settings.GlobalAllowedCapabilities
 		depcaps.PackageAllowedCapabilities = settings.PackageAllowedCapabilities
@@ -49,11 +51,7 @@ func NewAnalyzer(settings *LinterSettings) *analysis.Analyzer {
 	return a
 }
 
-func (d *depcaps) Settings(settings LinterSettings) {
-	d.LinterSettings = &settings
-}
-
-func (d *depcaps) init() error {
+func (d *depcaps) readCapslockBaseline() error {
 	if d.CapslockBaselineFile == "" {
 		return nil
 	}
@@ -70,29 +68,40 @@ func (d *depcaps) init() error {
 	return nil
 }
 
+var (
+	stdSetOnce = sync.Once{}
+	stdSet     = make(map[string]struct{})
+)
+
 func (d *depcaps) run(pass *analysis.Pass) (interface{}, error) {
-	err := d.init()
-	if err != nil {
-		return nil, err
-	}
+	var err error
 
 	if isTestPackage(pass) {
 		return nil, nil
 	}
 
 	// init std pkg list
-	// TODO: move to sync.Once
-	stdPkgs, err := packages.Load(&packages.Config{Tests: false}, "std")
-	if err != nil {
+	stdSetOnce.Do(func() {
+		var stdPkgs []*packages.Package
+		stdPkgs, err = packages.Load(&packages.Config{Tests: false}, "std")
+		if err != nil {
+			return
+		}
+
+		pre := func(pkg *packages.Package) bool {
+			stdSet[pkg.PkgPath] = struct{}{}
+			return true
+		}
+		packages.Visit(stdPkgs, pre, nil)
+	})
+	if err != nil { // process error from packages.Load if executed once and it returned an error
 		return nil, err
 	}
 
-	stdSet := make(map[string]struct{})
-	pre := func(pkg *packages.Package) bool {
-		stdSet[pkg.PkgPath] = struct{}{}
-		return true
+	err = d.readCapslockBaseline()
+	if err != nil {
+		return nil, err
 	}
-	packages.Visit(stdPkgs, pre, nil)
 
 	packagePrefix := pass.Pkg.Path()
 
@@ -106,6 +115,7 @@ func (d *depcaps) run(pass *analysis.Pass) (interface{}, error) {
 	var classifier analyzer.Classifier
 	classifier = analyzer.GetClassifier(true)
 
+	// TODO: can this be optimized, since we get the packages already from pass?
 	pkgs := analyzer.LoadPackages(packageNames,
 		analyzer.LoadConfig{
 			// TODO: support BuildTags, GOOS and GOARCH?
@@ -119,7 +129,6 @@ func (d *depcaps) run(pass *analysis.Pass) (interface{}, error) {
 	}
 
 	queriedPackages := analyzer.GetQueriedPackages(pkgs)
-
 	cil := analyzer.GetCapabilityInfo(pkgs, queriedPackages, classifier)
 
 	offendingCapabilities := make(map[string]map[proto.Capability]struct{})
