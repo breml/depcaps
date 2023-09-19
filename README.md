@@ -1,4 +1,4 @@
-# depcaps - map capabilities of dependencies agains a set of allowed capabilities
+# depcaps - map capabilities of dependencies against a set of allowed capabilities
 
 [![Test Status](https://github.com/breml/depcaps/workflows/Go%20Matrix/badge.svg)](https://github.com/breml/depcaps/actions?query=workflow%3AGo%20Matrix) [![Go Report Card](https://goreportcard.com/badge/github.com/breml/depcaps)](https://goreportcard.com/report/github.com/breml/depcaps) [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
