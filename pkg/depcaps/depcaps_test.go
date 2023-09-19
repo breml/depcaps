@@ -5,6 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	// unused import of "github.com/google/uuid" to workaround GOPROXY=no in
+	// analysistest. This caches the module in CI before analysistest is executed.
+	_ "github.com/google/uuid"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/analysistest"
 
