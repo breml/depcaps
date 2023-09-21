@@ -172,37 +172,36 @@ func (d *depcaps) run(pass *analysis.Pass) (interface{}, error) {
 			panic("for transitive capabilities, a min length of 2 is expected")
 		}
 
-		pathName := *c.GetPath()[1].Name
-		if strings.HasPrefix(pathName, "(") { // method
-			pathName = pathName[1:strings.LastIndex(pathName, ")")]
+		if extractPackagePath(*c.GetPath()[0].Name) != pass.Pkg.Path() {
+			continue
 		}
-		pathName = strings.TrimLeft(pathName, "*") // pointer receiver
-		if strings.HasPrefix(pathName, packagePrefix) || strings.HasPrefix("("+pathName, packagePrefix) {
+
+		depPkg := extractPackagePath(*c.GetPath()[1].Name)
+		if strings.HasPrefix(depPkg, packagePrefix) {
 			// if we call an other package of our own module, we ignore this call here
 			// TODO: make this behavior configurable
 			continue
 		}
-		pkg := pathName[:strings.LastIndex(pathName, ".")]
 
-		if len(pkg) == 0 {
+		if len(depPkg) == 0 {
 			continue
 		}
 
-		if _, ok := stdSet[pkg]; ok {
+		if _, ok := stdSet[depPkg]; ok {
 			continue
 		}
 
-		if _, ok := offendingCapabilities[pkg]; !ok {
-			offendingCapabilities[pkg] = make(map[proto.Capability]struct{})
+		if _, ok := offendingCapabilities[depPkg]; !ok {
+			offendingCapabilities[depPkg] = make(map[proto.Capability]struct{})
 		}
 
 		if ok := d.GlobalAllowedCapabilities[c.Capability.String()]; ok {
-			delete(offendingCapabilities[pkg], c.GetCapability())
+			delete(offendingCapabilities[depPkg], c.GetCapability())
 			continue
 		}
-		if pkgAllowedCaps, ok := d.PackageAllowedCapabilities[pkg]; ok {
+		if pkgAllowedCaps, ok := d.PackageAllowedCapabilities[depPkg]; ok {
 			if ok := pkgAllowedCaps[c.Capability.String()]; ok {
-				delete(offendingCapabilities[pkg], c.GetCapability())
+				delete(offendingCapabilities[depPkg], c.GetCapability())
 				continue
 			}
 		}
@@ -210,16 +209,12 @@ func (d *depcaps) run(pass *analysis.Pass) (interface{}, error) {
 			continue
 		}
 
-		offendingCapabilities[pkg][c.GetCapability()] = struct{}{}
+		offendingCapabilities[depPkg][c.GetCapability()] = struct{}{}
 	}
 
 	for pkg, pkgCaps := range offendingCapabilities {
 		for cap := range pkgCaps {
 			pos := findPos(pass, pkg)
-			if pos == 0 {
-				continue
-			}
-
 			pass.Report(analysis.Diagnostic{
 				Pos:     pos,
 				Message: fmt.Sprintf("Package %s has not allowed capability %s", pkg, cap),
@@ -256,6 +251,14 @@ func isTestPackage(pass *analysis.Pass) bool {
 	}
 
 	return false
+}
+
+func extractPackagePath(pathName string) string {
+	if strings.HasPrefix(pathName, "(") { // method
+		pathName = pathName[1:strings.LastIndex(pathName, ")")]
+	}
+	pathName = strings.TrimLeft(pathName, "*") // pointer receiver
+	return pathName[:strings.LastIndex(pathName, ".")]
 }
 
 func findPos(pass *analysis.Pass, pkg string) token.Pos {
