@@ -4,6 +4,24 @@
 
 depcaps maps capabilities of dependencies agains a set of allowed capabilities.
 
+List of reported capabilities:
+
+* CAPABILITY_UNSPECIFIED
+* CAPABILITY_SAFE
+* CAPABILITY_FILES
+* CAPABILITY_NETWORK
+* CAPABILITY_RUNTIME
+* CAPABILITY_READ_SYSTEM_STATE
+* CAPABILITY_MODIFY_SYSTEM_STATE
+* CAPABILITY_OPERATING_SYSTEM
+* CAPABILITY_SYSTEM_CALLS
+* CAPABILITY_ARBITRARY_EXECUTION
+* CAPABILITY_CGO
+* CAPABILITY_UNANALYZED
+* CAPABILITY_UNSAFE_POINTER
+* CAPABILITY_REFLECT
+* CAPABILITY_EXEC
+
 ## Installation
 
 Download `depcaps` from the [releases](https://github.com/breml/depcaps/releases) or get the latest version from source with:
