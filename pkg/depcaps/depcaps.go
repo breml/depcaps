@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/capslock/analyzer"
 	"github.com/google/capslock/proto"
+	"golang.org/x/mod/modfile"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/packages"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -31,9 +32,10 @@ func NewAnalyzer(settings *LinterSettings) *analysis.Analyzer {
 	}
 
 	a := &analysis.Analyzer{
-		Name: "depcaps",
-		Doc:  "depcaps maps capabilities of dependencies agains a set of allowed capabilities",
-		Run:  depcaps.run,
+		Name:     "depcaps",
+		Doc:      "depcaps maps capabilities of dependencies agains a set of allowed capabilities",
+		Run:      depcaps.run,
+		Requires: []*analysis.Analyzer{},
 	}
 
 	a.Flags.Init("depcaps", flag.ExitOnError)
@@ -69,66 +71,92 @@ func (d *depcaps) readCapslockBaseline() error {
 }
 
 var (
-	stdSetOnce = sync.Once{}
-	stdSet     = make(map[string]struct{})
+	once        = sync.Once{}
+	mu          sync.Mutex
+	initialized bool
+	stdSet      = make(map[string]struct{})
+	moduleFile  *modfile.File
+	cil         *proto.CapabilityInfoList
 )
 
 func (d *depcaps) run(pass *analysis.Pass) (interface{}, error) {
-	var err error
+	// init depcaps linter
+	{
+		// TODO: can the `WithContextSetter` from golangci-lint help here?
+		var err error
+		once.Do(func() {
+			mu.Lock()
+			defer mu.Unlock()
+
+			// init std pkg list
+			var stdPkgs []*packages.Package
+			stdPkgs, err = packages.Load(&packages.Config{Tests: false}, "std")
+			if err != nil {
+				return // error is returned after the once.Do-block
+			}
+
+			pre := func(pkg *packages.Package) bool {
+				stdSet[pkg.PkgPath] = struct{}{}
+				return true
+			}
+			packages.Visit(stdPkgs, pre, nil)
+
+			// init moduleFile
+			moduleFile, err = module.GetModuleFile()
+			if err != nil {
+				return // err is returned after the once.Do-block
+			}
+
+			packageNames := flag.Args()
+			if len(packageNames) == 0 {
+				packageNames = []string{"."}
+			}
+
+			var classifier analyzer.Classifier = analyzer.GetClassifier(true)
+
+			pkgs := analyzer.LoadPackages(packageNames,
+				analyzer.LoadConfig{
+					// TODO: support BuildTags, GOOS and GOARCH?
+					// 	BuildTags: *buildTags,
+					// 	GOOS:      *goos,
+					// 	GOARCH:    *goarch,
+				},
+			)
+			if len(pkgs) == 0 {
+				err = fmt.Errorf("no packages matching %v", packageNames)
+				return // err is returned after the once.Do.block
+			}
+
+			queriedPackages := analyzer.GetQueriedPackages(pkgs)
+			cil = analyzer.GetCapabilityInfo(pkgs, queriedPackages, classifier)
+
+			initialized = true
+		})
+		if err != nil { // process error from packages.Load if executed once and it returned an error
+			return nil, err
+		}
+	}
+
+	if !isInitialized() {
+		return nil, nil // failed to initialize depcaps linter, see previous error
+	}
 
 	if isTestPackage(pass) {
 		return nil, nil
 	}
 
-	// init std pkg list
-	stdSetOnce.Do(func() {
-		var stdPkgs []*packages.Package
-		stdPkgs, err = packages.Load(&packages.Config{Tests: false}, "std")
-		if err != nil {
-			return
-		}
-
-		pre := func(pkg *packages.Package) bool {
-			stdSet[pkg.PkgPath] = struct{}{}
-			return true
-		}
-		packages.Visit(stdPkgs, pre, nil)
-	})
-	if err != nil { // process error from packages.Load if executed once and it returned an error
-		return nil, err
-	}
-
-	err = d.readCapslockBaseline()
+	err := d.readCapslockBaseline()
 	if err != nil {
 		return nil, err
 	}
 
 	packagePrefix := pass.Pkg.Path()
-
-	moduleFile, err := module.GetModuleFile()
-	if err == nil {
-		packagePrefix = moduleFile.Module.Mod.Path
+	if moduleFile != nil {
+		packagePrefix = getModulePath()
 	}
 
-	packageNames := []string{pass.Pkg.Path()}
-
-	var classifier analyzer.Classifier = analyzer.GetClassifier(true)
-
-	// TODO: can this be optimized, since we get the packages already from pass?
-	pkgs := analyzer.LoadPackages(packageNames,
-		analyzer.LoadConfig{
-			// TODO: support BuildTags, GOOS and GOARCH?
-			// 	BuildTags: *buildTags,
-			// 	GOOS:      *goos,
-			// 	GOARCH:    *goarch,
-		},
-	)
-	if len(pkgs) == 0 {
-		return nil, fmt.Errorf("No packages matching %v", packageNames)
-	}
-
-	queriedPackages := analyzer.GetQueriedPackages(pkgs)
-	cil := analyzer.GetCapabilityInfo(pkgs, queriedPackages, classifier)
+	mu.Lock()
+	defer mu.Unlock()
 
 	offendingCapabilities := make(map[string]map[proto.Capability]struct{})
 	if d.baseline != nil {
@@ -188,6 +216,10 @@ func (d *depcaps) run(pass *analysis.Pass) (interface{}, error) {
 	for pkg, pkgCaps := range offendingCapabilities {
 		for cap := range pkgCaps {
 			pos := findPos(pass, pkg)
+			if pos == 0 {
+				continue
+			}
+
 			pass.Report(analysis.Diagnostic{
 				Pos:     pos,
 				Message: fmt.Sprintf("Package %s has not allowed capability %s", pkg, cap),
@@ -196,6 +228,20 @@ func (d *depcaps) run(pass *analysis.Pass) (interface{}, error) {
 	}
 
 	return nil, nil
+}
+
+func isInitialized() bool {
+	mu.Lock()
+	defer mu.Unlock()
+
+	return initialized
+}
+
+func getModulePath() string {
+	mu.Lock()
+	defer mu.Unlock()
+
+	return moduleFile.Module.Mod.Path
 }
 
 func isTestPackage(pass *analysis.Pass) bool {

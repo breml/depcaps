@@ -100,6 +100,8 @@ func TestAll(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
+			depcaps.ResetGlobalState()
+
 			testCaseDir := filepath.Join(testdata, "src", tc.testdataDir)
 			err = os.Chdir(testCaseDir)
 			if err != nil {
