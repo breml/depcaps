@@ -150,6 +150,7 @@ func (d *depcaps) run(pass *analysis.Pass) (interface{}, error) {
 		return nil, err
 	}
 
+	packageName := pass.Pkg.Path()
 	packagePrefix := pass.Pkg.Path()
 	if moduleFile != nil {
 		packagePrefix = getModulePath()
@@ -160,30 +161,12 @@ func (d *depcaps) run(pass *analysis.Pass) (interface{}, error) {
 
 	offendingCapabilities := make(map[string]map[proto.Capability]struct{})
 	if d.baseline != nil {
-		offendingCapabilities = diffCapabilityInfoLists(d.baseline, cil, packagePrefix)
+		offendingCapabilities = diffCapabilityInfoLists(d.baseline, cil, packageName, packagePrefix)
 	}
 
-	for _, c := range cil.GetCapabilityInfo() {
-		if c.GetCapabilityType() != proto.CapabilityType_CAPABILITY_TYPE_TRANSITIVE {
-			continue
-		}
-
-		if len(c.GetPath()) < 2 {
-			panic("for transitive capabilities, a min length of 2 is expected")
-		}
-
-		if extractPackagePath(*c.GetPath()[0].Name) != pass.Pkg.Path() {
-			continue
-		}
-
-		depPkg := extractPackagePath(*c.GetPath()[1].Name)
-		if strings.HasPrefix(depPkg, packagePrefix) {
-			// if we call an other package of our own module, we ignore this call here
-			// TODO: make this behavior configurable
-			continue
-		}
-
-		if len(depPkg) == 0 {
+	for _, ci := range cil.GetCapabilityInfo() {
+		depPkg, skip := relevantCapabilityInfo(ci, packageName, packagePrefix)
+		if !skip {
 			continue
 		}
 
@@ -195,13 +178,13 @@ func (d *depcaps) run(pass *analysis.Pass) (interface{}, error) {
 			offendingCapabilities[depPkg] = make(map[proto.Capability]struct{})
 		}
 
-		if ok := d.GlobalAllowedCapabilities[c.Capability.String()]; ok {
-			delete(offendingCapabilities[depPkg], c.GetCapability())
+		if ok := d.GlobalAllowedCapabilities[ci.Capability.String()]; ok {
+			delete(offendingCapabilities[depPkg], ci.GetCapability())
 			continue
 		}
 		if pkgAllowedCaps, ok := d.PackageAllowedCapabilities[depPkg]; ok {
-			if ok := pkgAllowedCaps[c.Capability.String()]; ok {
-				delete(offendingCapabilities[depPkg], c.GetCapability())
+			if ok := pkgAllowedCaps[ci.Capability.String()]; ok {
+				delete(offendingCapabilities[depPkg], ci.GetCapability())
 				continue
 			}
 		}
@@ -209,7 +192,7 @@ func (d *depcaps) run(pass *analysis.Pass) (interface{}, error) {
 			continue
 		}
 
-		offendingCapabilities[depPkg][c.GetCapability()] = struct{}{}
+		offendingCapabilities[depPkg][ci.GetCapability()] = struct{}{}
 	}
 
 	for pkg, pkgCaps := range offendingCapabilities {
@@ -251,6 +234,33 @@ func isTestPackage(pass *analysis.Pass) bool {
 	}
 
 	return false
+}
+
+func relevantCapabilityInfo(ci *proto.CapabilityInfo, packageName, packagePrefix string) (string, bool) {
+	if ci.GetCapabilityType() != proto.CapabilityType_CAPABILITY_TYPE_TRANSITIVE {
+		return "", false
+	}
+
+	if len(ci.GetPath()) < 2 {
+		panic("for transitive capabilities, a min length of 2 is expected")
+	}
+
+	if extractPackagePath(*ci.GetPath()[0].Name) != packageName {
+		return "", false
+	}
+
+	depPkg := extractPackagePath(*ci.GetPath()[1].Name)
+	if strings.HasPrefix(depPkg, packagePrefix) {
+		// if we call an other package of our own module, we ignore this call here
+		// TODO: make this behavior configurable
+		return "", false
+	}
+
+	if len(depPkg) == 0 {
+		return "", false
+	}
+
+	return depPkg, true
 }
 
 func extractPackagePath(pathName string) string {

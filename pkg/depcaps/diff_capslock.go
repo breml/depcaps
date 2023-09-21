@@ -12,7 +12,6 @@ package depcaps
 
 import (
 	"sort"
-	"strings"
 
 	"github.com/google/capslock/proto"
 )
@@ -25,43 +24,27 @@ type (
 // populateMap takes a CapabilityInfoList and returns a map from package
 // directory and capability to a pointer to the corresponding entry in the
 // input.
-func populateMap(cil *proto.CapabilityInfoList, packagePrefix string) capabilitiesMap {
+func populateMap(cil *proto.CapabilityInfoList, packageName, packagePrefix string) capabilitiesMap {
 	m := make(capabilitiesMap)
-	// TODO: this loop is very similar to the loop in depcaps:run -> cleanup this code
 	for _, ci := range cil.GetCapabilityInfo() {
-		if ci.GetCapabilityType() != proto.CapabilityType_CAPABILITY_TYPE_TRANSITIVE {
+		depPkg, skip := relevantCapabilityInfo(ci, packageName, packagePrefix)
+		if !skip {
 			continue
 		}
 
-		if len(ci.GetPath()) < 2 {
-			panic("for transitive capabilities, a min length of 2 is expected")
-		}
-
-		pathName := *ci.GetPath()[1].Name
-		if strings.HasPrefix(pathName, packagePrefix) {
-			// if we call an other package of our own module, we ignore this call here
-			// TODO: make this behavior configurable
-			continue
-		}
-		pkg := (pathName)[:strings.LastIndex(pathName, ".")]
-
-		if len(pkg) == 0 {
-			continue
-		}
-
-		capmap := m[pkg]
+		capmap := m[depPkg]
 		if capmap == nil {
 			capmap = make(capabilitySet)
-			m[pkg] = capmap
+			m[depPkg] = capmap
 		}
 		capmap[ci.GetCapability()] = ci
 	}
 	return m
 }
 
-func diffCapabilityInfoLists(baseline, current *proto.CapabilityInfoList, packagePrefix string) map[string]map[proto.Capability]struct{} {
-	baselineMap := populateMap(baseline, packagePrefix)
-	currentMap := populateMap(current, packagePrefix)
+func diffCapabilityInfoLists(baseline, current *proto.CapabilityInfoList, packageName, packagePrefix string) map[string]map[proto.Capability]struct{} {
+	baselineMap := populateMap(baseline, packageName, packagePrefix)
+	currentMap := populateMap(current, packageName, packagePrefix)
 
 	var packages []string
 	for packageName := range baselineMap {
