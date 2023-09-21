@@ -198,6 +198,12 @@ func (d *depcaps) run(pass *analysis.Pass) (interface{}, error) {
 	for pkg, pkgCaps := range offendingCapabilities {
 		for cap := range pkgCaps {
 			pos := findPos(pass, pkg)
+			if pos == 0 {
+				// TODO: figure out, if and why this is necessary
+				// skip offending capabilites, that can not be matched to a source code location
+				continue
+			}
+
 			pass.Report(analysis.Diagnostic{
 				Pos:     pos,
 				Message: fmt.Sprintf("Package %s has not allowed capability %s", pkg, cap),
