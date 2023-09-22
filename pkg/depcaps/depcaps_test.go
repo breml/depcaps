@@ -89,6 +89,12 @@ func TestAll(t *testing.T) {
 			},
 			testdataDir: "capslockfileemptyallow",
 		},
+		{
+			name:           "stdlib",
+			analyzerFunc:   depcaps.NewAnalyzer,
+			linterSettings: nil,
+			testdataDir:    "stdlib",
+		},
 	}
 
 	wd, err := os.Getwd()

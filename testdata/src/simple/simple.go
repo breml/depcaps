@@ -5,5 +5,5 @@ import (
 )
 
 func main() {
-	uuid.GetTime()
+	uuid.GetTime() // regular function call is reported
 }
