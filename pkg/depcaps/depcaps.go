@@ -53,23 +53,6 @@ func NewAnalyzer(settings *LinterSettings) *analysis.Analyzer {
 	return a
 }
 
-func (d *depcaps) readCapslockBaseline() error {
-	if d.CapslockBaselineFile == "" {
-		return nil
-	}
-
-	baselineData, err := os.ReadFile(d.CapslockBaselineFile)
-	if err != nil {
-		return fmt.Errorf("Error reading baseline file: %v", err)
-	}
-	d.baseline = &proto.CapabilityInfoList{}
-	err = protojson.Unmarshal(baselineData, d.baseline)
-	if err != nil {
-		return fmt.Errorf("Baseline file should include output from running `capslock -output=j`. Error parsing baseline file: %v", err)
-	}
-	return nil
-}
-
 var (
 	once        = sync.Once{}
 	mu          sync.Mutex
@@ -77,6 +60,7 @@ var (
 	stdSet      = make(map[string]struct{})
 	moduleFile  *modfile.File
 	cil         *proto.CapabilityInfoList
+	baseline    *proto.CapabilityInfoList
 )
 
 func (d *depcaps) run(pass *analysis.Pass) (interface{}, error) {
@@ -130,6 +114,11 @@ func (d *depcaps) run(pass *analysis.Pass) (interface{}, error) {
 			queriedPackages := analyzer.GetQueriedPackages(pkgs)
 			cil = analyzer.GetCapabilityInfo(pkgs, queriedPackages, classifier)
 
+			err := readCapslockBaseline(d.CapslockBaselineFile)
+			if err != nil {
+				return // err is returned after the once.Do.block
+			}
+
 			initialized = true
 		})
 		if err != nil { // process error from packages.Load if executed once and it returned an error
@@ -145,11 +134,6 @@ func (d *depcaps) run(pass *analysis.Pass) (interface{}, error) {
 		return nil, nil
 	}
 
-	err := d.readCapslockBaseline()
-	if err != nil {
-		return nil, err
-	}
-
 	packageName := pass.Pkg.Path()
 	packagePrefix := pass.Pkg.Path()
 	if moduleFile != nil {
@@ -160,8 +144,8 @@ func (d *depcaps) run(pass *analysis.Pass) (interface{}, error) {
 	defer mu.Unlock()
 
 	offendingCapabilities := make(map[string]map[proto.Capability]struct{})
-	if d.baseline != nil {
-		offendingCapabilities = diffCapabilityInfoLists(d.baseline, cil, packageName, packagePrefix)
+	if baseline != nil {
+		offendingCapabilities = diffCapabilityInfoLists(baseline, cil, packageName, packagePrefix)
 	}
 
 	for _, ci := range cil.GetCapabilityInfo() {
@@ -188,7 +172,7 @@ func (d *depcaps) run(pass *analysis.Pass) (interface{}, error) {
 				continue
 			}
 		}
-		if d.baseline != nil {
+		if baseline != nil {
 			continue
 		}
 
@@ -212,6 +196,23 @@ func (d *depcaps) run(pass *analysis.Pass) (interface{}, error) {
 	}
 
 	return nil, nil
+}
+
+func readCapslockBaseline(capslockBaselineFile string) error {
+	if capslockBaselineFile == "" {
+		return nil
+	}
+
+	baselineData, err := os.ReadFile(capslockBaselineFile)
+	if err != nil {
+		return fmt.Errorf("Error reading baseline file: %v", err)
+	}
+	baseline = &proto.CapabilityInfoList{}
+	err = protojson.Unmarshal(baselineData, baseline)
+	if err != nil {
+		return fmt.Errorf("Baseline file should include output from running `capslock -output=j`. Error parsing baseline file: %v", err)
+	}
+	return nil
 }
 
 func isInitialized() bool {

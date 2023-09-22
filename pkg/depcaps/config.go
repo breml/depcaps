@@ -12,15 +12,13 @@ type LinterSettings struct {
 	GlobalAllowedCapabilities  map[string]bool            `json:"GlobalAllowedCapabilities"`
 	PackageAllowedCapabilities map[string]map[string]bool `json:"PackageAllowedCapabilities"`
 	CapslockBaselineFile       string                     `json:"-"`
-	baseline                   *proto.CapabilityInfoList
 }
 
 func (s LinterSettings) IsBoolFlag() bool { return false }
 func (s LinterSettings) Get() interface{} { return s }
 
 func (s LinterSettings) String() string {
-	b, _ := json.Marshal(s)
-	return fmt.Sprintf("%s, CapslockBaselineFile: %s, baseline: %v", string(b), s.CapslockBaselineFile, s.baseline)
+	return ""
 }
 
 func (s *LinterSettings) Set(in string) error {
