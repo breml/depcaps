@@ -22,10 +22,16 @@ func TestAll(t *testing.T) {
 		testdataDir    string
 	}{
 		{
-			name:           "simple",
+			name:           "func",
 			analyzerFunc:   depcaps.NewAnalyzer,
 			linterSettings: nil,
-			testdataDir:    "simple",
+			testdataDir:    "func",
+		},
+		{
+			name:           "method",
+			analyzerFunc:   depcaps.NewAnalyzer,
+			linterSettings: nil,
+			testdataDir:    "method",
 		},
 		{
 			name:         "global allow",
