@@ -12,13 +12,13 @@ func TestLinterSettingsSet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to set settings: %s", err)
 	}
-	if settings.GlobalAllowedCapabilities["CAPABILITY_UNSPECIFIED"] != true {
+	if settings.GlobalAllowedCapabilities["CAPABILITY_FILES"] != true {
 		t.Fatalf("CAPABILITY_UNSPECIFIED not set")
 	}
 	if settings.PackageAllowedCapabilities["github.com/google/uuid"] == nil {
 		t.Fatalf("github.com/google/uuid")
 	}
-	if settings.PackageAllowedCapabilities["github.com/google/uuid"]["CAPABILITY_RUNTIME"] != true {
+	if settings.PackageAllowedCapabilities["github.com/google/uuid"]["CAPABILITY_NETWORK"] != true {
 		t.Fatalf("CAPABILITY_RUNTIME not set")
 	}
 }
