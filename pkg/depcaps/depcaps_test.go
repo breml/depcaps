@@ -8,7 +8,6 @@ import (
 	// unused import of "github.com/google/uuid" to workaround GOPROXY=no in
 	// analysistest. This caches the module in CI before analysistest is executed.
 	_ "github.com/google/uuid"
-	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/analysistest"
 
 	"github.com/breml/depcaps/pkg/depcaps"
@@ -17,35 +16,42 @@ import (
 func TestAll(t *testing.T) {
 	tt := []struct {
 		name           string
-		analyzerFunc   func(*depcaps.LinterSettings) *analysis.Analyzer
 		linterSettings *depcaps.LinterSettings
 		testdataDir    string
+		packages       []string
 	}{
 		{
-			name:           "func",
-			analyzerFunc:   depcaps.NewAnalyzer,
+			name:           "init",
 			linterSettings: nil,
-			testdataDir:    "func",
+			testdataDir:    "alltest",
+			packages:       []string{"."},
 		},
 		{
-			name:           "method",
-			analyzerFunc:   depcaps.NewAnalyzer,
+			name:           "simple",
 			linterSettings: nil,
-			testdataDir:    "method",
+			testdataDir:    "alltest",
+			packages:       []string{"./simple/..."},
 		},
 		{
-			name:         "global allow",
-			analyzerFunc: depcaps.NewAnalyzer,
+			name: "capslock file empty",
+			linterSettings: &depcaps.LinterSettings{
+				CapslockBaselineFile: "simple/capslock.json",
+			},
+			testdataDir: "alltest",
+			packages:    []string{"./simple/..."},
+		},
+		{
+			name: "global allow",
 			linterSettings: &depcaps.LinterSettings{
 				GlobalAllowedCapabilities: map[string]bool{
 					"CAPABILITY_FILES": true,
 				},
 			},
-			testdataDir: "allow",
+			testdataDir: "alltest",
+			packages:    []string{"./allow/..."},
 		},
 		{
-			name:         "package allow",
-			analyzerFunc: depcaps.NewAnalyzer,
+			name: "package allow",
 			linterSettings: &depcaps.LinterSettings{
 				PackageAllowedCapabilities: map[string]map[string]bool{
 					"github.com/google/uuid": {
@@ -53,53 +59,40 @@ func TestAll(t *testing.T) {
 					},
 				},
 			},
-			testdataDir: "allow",
+			testdataDir: "alltest",
+			packages:    []string{"./allow/..."},
 		},
 		{
-			name:         "capslock file",
-			analyzerFunc: depcaps.NewAnalyzer,
-			linterSettings: &depcaps.LinterSettings{
-				CapslockBaselineFile: "capslock.json",
-			},
-			testdataDir: "capslockfile",
-		},
-		{
-			name:         "capslock file empty",
-			analyzerFunc: depcaps.NewAnalyzer,
-			linterSettings: &depcaps.LinterSettings{
-				CapslockBaselineFile: "capslock.json",
-			},
-			testdataDir: "capslockfileempty",
-		},
-		{
-			name:         "capslock file empty with global allow",
-			analyzerFunc: depcaps.NewAnalyzer,
+			name: "capslock file empty with global allow",
 			linterSettings: &depcaps.LinterSettings{
 				GlobalAllowedCapabilities: map[string]bool{
 					"CAPABILITY_FILES": true,
 				},
-				CapslockBaselineFile: "capslock.json",
+				CapslockBaselineFile: "allow/capslock.json",
 			},
-			testdataDir: "capslockfileemptyallow",
+			testdataDir: "alltest",
+			packages:    []string{"./allow/..."},
 		},
 		{
-			name:         "capslock file empty with package allow",
-			analyzerFunc: depcaps.NewAnalyzer,
+			name: "capslock file empty with package allow",
 			linterSettings: &depcaps.LinterSettings{
 				PackageAllowedCapabilities: map[string]map[string]bool{
 					"github.com/google/uuid": {
 						"CAPABILITY_FILES": true,
 					},
 				},
-				CapslockBaselineFile: "capslock.json",
+				CapslockBaselineFile: "allow/capslock.json",
 			},
-			testdataDir: "capslockfileemptyallow",
+			testdataDir: "alltest",
+			packages:    []string{"./allow/..."},
 		},
 		{
-			name:           "stdlib",
-			analyzerFunc:   depcaps.NewAnalyzer,
-			linterSettings: nil,
-			testdataDir:    "stdlib",
+			name: "capslock file",
+			linterSettings: &depcaps.LinterSettings{
+				CapslockBaselineFile: "capslockfile/capslock.json",
+			},
+			testdataDir: "alltest",
+			packages:    []string{"./capslockfile/..."},
 		},
 	}
 
@@ -112,8 +105,6 @@ func TestAll(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			depcaps.ResetGlobalState()
-
 			testCaseDir := filepath.Join(testdata, "src", tc.testdataDir)
 			err = os.Chdir(testCaseDir)
 			if err != nil {
@@ -127,8 +118,28 @@ func TestAll(t *testing.T) {
 			}()
 
 			tc.linterSettings = osSpecificLinterSettings(tc.linterSettings)
-
-			analysistest.Run(t, testCaseDir, tc.analyzerFunc(tc.linterSettings), ".")
+			depcaps.SetOSArgs([]string{"./..."})
+			if tc.linterSettings != nil {
+				depcaps.SetBaseline(tc.linterSettings.CapslockBaselineFile)
+			}
+			analysistest.Run(t, testCaseDir, depcaps.NewAnalyzer(tc.linterSettings), tc.packages...)
 		})
+	}
+}
+
+func TestLinterSettingsSet(t *testing.T) {
+	settings := &depcaps.LinterSettings{}
+	err := settings.Set("../../cmd/depcaps/config.json.example")
+	if err != nil {
+		t.Fatalf("Failed to set settings: %s", err)
+	}
+	if settings.GlobalAllowedCapabilities["CAPABILITY_UNSPECIFIED"] != true {
+		t.Fatalf("CAPABILITY_UNSPECIFIED not set")
+	}
+	if settings.PackageAllowedCapabilities["github.com/google/uuid"] == nil {
+		t.Fatalf("github.com/google/uuid")
+	}
+	if settings.PackageAllowedCapabilities["github.com/google/uuid"]["CAPABILITY_RUNTIME"] != true {
+		t.Fatalf("CAPABILITY_RUNTIME not set")
 	}
 }

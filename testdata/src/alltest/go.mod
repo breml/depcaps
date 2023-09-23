@@ -1,4 +1,4 @@
-module capslockfileempty
+module alltest
 
 go 1.20
 

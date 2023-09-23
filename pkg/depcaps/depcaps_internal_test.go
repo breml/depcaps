@@ -1,14 +1,15 @@
 package depcaps
 
-import "sync"
+func SetOSArgs(args []string) {
+	osArgs = args
+}
 
-func ResetGlobalState() {
+func SetBaseline(baselineFile string) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	once = sync.Once{}
-	initialized = false
-	stdSet = make(map[string]struct{})
-	moduleFile = nil
-	cil = nil
+	err := readCapslockBaseline(baselineFile)
+	if err != nil {
+		panic(err)
+	}
 }

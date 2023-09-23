@@ -54,13 +54,14 @@ func NewAnalyzer(settings *LinterSettings) *analysis.Analyzer {
 }
 
 var (
-	once        = sync.Once{}
-	mu          sync.Mutex
-	initialized bool
-	stdSet      = make(map[string]struct{})
-	moduleFile  *modfile.File
-	cil         *proto.CapabilityInfoList
-	baseline    *proto.CapabilityInfoList
+	once       = sync.Once{}
+	mu         sync.Mutex
+	stdSet     = make(map[string]struct{})
+	moduleFile *modfile.File
+	cil        *proto.CapabilityInfoList
+	baseline   *proto.CapabilityInfoList
+
+	osArgs []string
 )
 
 func (d *depcaps) run(pass *analysis.Pass) (interface{}, error) {
@@ -94,6 +95,10 @@ func (d *depcaps) run(pass *analysis.Pass) (interface{}, error) {
 			packageNames := flag.Args()
 			if len(packageNames) == 0 {
 				packageNames = []string{"."}
+
+				if len(osArgs) > 0 {
+					packageNames = osArgs
+				}
 			}
 
 			var classifier analyzer.Classifier = analyzer.GetClassifier(true)
@@ -118,16 +123,10 @@ func (d *depcaps) run(pass *analysis.Pass) (interface{}, error) {
 			if err != nil {
 				return // err is returned after the once.Do.block
 			}
-
-			initialized = true
 		})
 		if err != nil { // process error from packages.Load if executed once and it returned an error
 			return nil, err
 		}
-	}
-
-	if !isInitialized() {
-		return nil, nil // failed to initialize depcaps linter, see previous error
 	}
 
 	if isTestPackage(pass) {
@@ -215,13 +214,6 @@ func readCapslockBaseline(capslockBaselineFile string) error {
 	return nil
 }
 
-func isInitialized() bool {
-	mu.Lock()
-	defer mu.Unlock()
-
-	return initialized
-}
-
 func getModulePath() string {
 	mu.Lock()
 	defer mu.Unlock()
@@ -234,11 +226,11 @@ func isTestPackage(pass *analysis.Pass) bool {
 		return true
 	}
 
-	for _, f := range pass.Files {
-		if strings.HasSuffix(pass.Fset.File(f.Pos()).Name(), "_test.go") {
-			return true
-		}
-	}
+	// for _, f := range pass.Files {
+	// 	if strings.HasSuffix(pass.Fset.File(f.Pos()).Name(), "_test.go") {
+	// 		return true
+	// 	}
+	// }
 
 	return false
 }
@@ -280,6 +272,9 @@ func extractPackagePath(pathName string) string {
 
 func findPos(pass *analysis.Pass, pkg string) token.Pos {
 	for _, file := range pass.Files {
+		if strings.HasSuffix(file.Name.Name, "_test.go") {
+			continue
+		}
 		for _, i := range file.Imports {
 			if pkg == strings.Trim(i.Path.Value, `"`) {
 				return i.Pos()

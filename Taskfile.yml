@@ -4,6 +4,6 @@ version: '3'
 
 tasks:
   generate:
-    dir: testdata/src/capslockfile
+    dir: testdata/src/alltest/capslockfile
     cmds:
       - go run github.com/google/capslock/cmd/capslock -noisy -output json > capslock.json
