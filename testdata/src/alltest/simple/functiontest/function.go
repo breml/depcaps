@@ -1,0 +1,4 @@
+package functiontest
+
+func Call() {
+}

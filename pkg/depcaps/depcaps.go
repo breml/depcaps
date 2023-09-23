@@ -178,6 +178,7 @@ func (d *depcaps) run(pass *analysis.Pass) (interface{}, error) {
 		offendingCapabilities[depPkg][ci.GetCapability()] = struct{}{}
 	}
 
+	// TODO: sort offendingCapabilities by package name and capability name before reporting
 	for pkg, pkgCaps := range offendingCapabilities {
 		for cap := range pkgCaps {
 			pos := findPos(pass, pkg)
@@ -272,7 +273,7 @@ func extractPackagePath(pathName string) string {
 
 func findPos(pass *analysis.Pass, pkg string) token.Pos {
 	for _, file := range pass.Files {
-		if strings.HasSuffix(file.Name.Name, "_test.go") {
+		if strings.HasSuffix(pass.Fset.File(file.Pos()).Name(), "_test.go") {
 			continue
 		}
 		for _, i := range file.Imports {
