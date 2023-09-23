@@ -1,0 +1,7 @@
+{
+  "PackageAllowedCapabilities": {
+    "github.com/google/uuid": {
+      "INVALID_CAPABILITY": true
+    }
+  }
+}

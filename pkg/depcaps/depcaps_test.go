@@ -126,20 +126,3 @@ func TestAll(t *testing.T) {
 		})
 	}
 }
-
-func TestLinterSettingsSet(t *testing.T) {
-	settings := &depcaps.LinterSettings{}
-	err := settings.Set("../../cmd/depcaps/config.json.example")
-	if err != nil {
-		t.Fatalf("Failed to set settings: %s", err)
-	}
-	if settings.GlobalAllowedCapabilities["CAPABILITY_UNSPECIFIED"] != true {
-		t.Fatalf("CAPABILITY_UNSPECIFIED not set")
-	}
-	if settings.PackageAllowedCapabilities["github.com/google/uuid"] == nil {
-		t.Fatalf("github.com/google/uuid")
-	}
-	if settings.PackageAllowedCapabilities["github.com/google/uuid"]["CAPABILITY_RUNTIME"] != true {
-		t.Fatalf("CAPABILITY_RUNTIME not set")
-	}
-}

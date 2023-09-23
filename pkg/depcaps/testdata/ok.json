@@ -1,0 +1,10 @@
+{
+  "GlobalAllowedCapabilities": {
+    "CAPABILITY_UNSPECIFIED": true
+  },
+  "PackageAllowedCapabilities": {
+    "github.com/google/uuid": {
+      "CAPABILITY_RUNTIME": true
+    }
+  }
+}
