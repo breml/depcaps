@@ -54,7 +54,7 @@ func New(settings *LinterSettings) *depcaps {
 	return depcaps
 }
 
-func (d *depcaps) AsAnalyzer() *analysis.Analyzer {
+func (d *depcaps) AsAnalyzer(withFlags bool) *analysis.Analyzer {
 	a := &analysis.Analyzer{
 		Name:     "depcaps",
 		Doc:      "depcaps maps capabilities of dependencies agains a set of allowed capabilities",
@@ -62,10 +62,12 @@ func (d *depcaps) AsAnalyzer() *analysis.Analyzer {
 		Requires: []*analysis.Analyzer{},
 	}
 
-	a.Flags.Init("depcaps", flag.ExitOnError)
-	a.Flags.Var(versionFlag{}, "V", "print version and exit")
-	a.Flags.Var(d.LinterSettings, "config", "depcaps linter settings config file")
-	a.Flags.StringVar(&d.CapslockBaselineFile, "reference", "", "capslock capabilities reference file")
+	if withFlags {
+		a.Flags.Init("depcaps", flag.ExitOnError)
+		a.Flags.Var(versionFlag{}, "V", "print version and exit")
+		a.Flags.Var(d.LinterSettings, "config", "depcaps linter settings config file")
+		a.Flags.StringVar(&d.CapslockBaselineFile, "reference", "", "capslock capabilities reference file")
+	}
 
 	return a
 }
