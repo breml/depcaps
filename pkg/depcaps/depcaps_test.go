@@ -117,12 +117,14 @@ func TestAll(t *testing.T) {
 				}
 			}()
 
+			depcapsLinter := depcaps.New(tc.linterSettings).WithArgs([]string{"./..."})
+
 			tc.linterSettings = osSpecificLinterSettings(tc.linterSettings)
-			depcaps.SetOSArgs([]string{"./..."})
 			if tc.linterSettings != nil {
-				depcaps.SetBaseline(tc.linterSettings.CapslockBaselineFile)
+				depcapsLinter = depcapsLinter.WithBaselineFile(tc.linterSettings.CapslockBaselineFile)
 			}
-			analysistest.Run(t, testCaseDir, depcaps.NewAnalyzer(tc.linterSettings), tc.packages...)
+
+			analysistest.Run(t, testCaseDir, depcapsLinter.AsAnalyzer(), tc.packages...)
 		})
 	}
 }

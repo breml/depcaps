@@ -20,90 +20,121 @@ import (
 
 type depcaps struct {
 	*LinterSettings
+
+	flagArgs bool
+	args     []string
+	packages []*packages.Package
+
+	once       *sync.Once
+	mu         *sync.Mutex
+	stdSet     map[string]struct{}
+	moduleFile *modfile.File
+	cil        *proto.CapabilityInfoList
+	baseline   *proto.CapabilityInfoList
 }
 
-// NewAnalyzer returns a new depcaps analyzer.
-func NewAnalyzer(settings *LinterSettings) *analysis.Analyzer {
-	depcaps := depcaps{
+func New(settings *LinterSettings) *depcaps {
+	depcaps := &depcaps{
 		LinterSettings: &LinterSettings{
 			GlobalAllowedCapabilities:  map[string]bool{},
 			PackageAllowedCapabilities: map[string]map[string]bool{},
 		},
+
+		once:   &sync.Once{},
+		mu:     &sync.Mutex{},
+		stdSet: make(map[string]struct{}),
 	}
 
-	a := &analysis.Analyzer{
-		Name:     "depcaps",
-		Doc:      "depcaps maps capabilities of dependencies agains a set of allowed capabilities",
-		Run:      depcaps.run,
-		Requires: []*analysis.Analyzer{},
-	}
-
-	a.Flags.Init("depcaps", flag.ExitOnError)
-	a.Flags.Var(versionFlag{}, "V", "print version and exit")
-	a.Flags.Var(depcaps.LinterSettings, "config", "depcaps linter settings config file")
-	a.Flags.StringVar(&depcaps.CapslockBaselineFile, "reference", "", "capslock capabilities reference file")
-
-	// if settings are provided, these have precedence
 	if settings != nil {
 		depcaps.GlobalAllowedCapabilities = settings.GlobalAllowedCapabilities
 		depcaps.PackageAllowedCapabilities = settings.PackageAllowedCapabilities
 		depcaps.CapslockBaselineFile = settings.CapslockBaselineFile
 	}
 
+	return depcaps
+}
+
+func (d *depcaps) AsAnalyzer() *analysis.Analyzer {
+	a := &analysis.Analyzer{
+		Name:     "depcaps",
+		Doc:      "depcaps maps capabilities of dependencies agains a set of allowed capabilities",
+		Run:      d.run,
+		Requires: []*analysis.Analyzer{},
+	}
+
+	a.Flags.Init("depcaps", flag.ExitOnError)
+	a.Flags.Var(versionFlag{}, "V", "print version and exit")
+	a.Flags.Var(d.LinterSettings, "config", "depcaps linter settings config file")
+	a.Flags.StringVar(&d.CapslockBaselineFile, "reference", "", "capslock capabilities reference file")
+
 	return a
 }
 
-var (
-	once       = sync.Once{}
-	mu         sync.Mutex
-	stdSet     = make(map[string]struct{})
-	moduleFile *modfile.File
-	cil        *proto.CapabilityInfoList
-	baseline   *proto.CapabilityInfoList
+func (d *depcaps) WithPackages(pkgs []*packages.Package) *depcaps {
+	d.packages = pkgs
+	return d
+}
 
-	osArgs []string
-)
+func (d *depcaps) WithArgs(args []string) *depcaps {
+	d.args = args
+	return d
+}
 
-func (d *depcaps) run(pass *analysis.Pass) (interface{}, error) {
-	// init depcaps linter
-	{
-		// TODO: can the `WithContextSetter` from golangci-lint help here?
-		var err error
-		once.Do(func() {
-			mu.Lock()
-			defer mu.Unlock()
+func (d *depcaps) WithFlagArgs() *depcaps {
+	d.flagArgs = true
+	return d
+}
 
-			// init std pkg list
-			var stdPkgs []*packages.Package
-			stdPkgs, err = packages.Load(&packages.Config{Tests: false}, "std")
-			if err != nil {
-				return // error is returned after the once.Do-block
-			}
+func (d *depcaps) WithBaselineFile(baselineFile string) *depcaps {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 
-			pre := func(pkg *packages.Package) bool {
-				stdSet[pkg.PkgPath] = struct{}{}
-				return true
-			}
-			packages.Visit(stdPkgs, pre, nil)
+	err := d.readCapslockBaseline(baselineFile)
+	if err != nil {
+		panic(err)
+	}
 
-			// init moduleFile
-			moduleFile, err = module.GetModuleFile()
-			if err != nil {
-				return // err is returned after the once.Do-block
-			}
+	return d
+}
 
-			packageNames := flag.Args()
-			if len(packageNames) == 0 {
-				packageNames = []string{"."}
+func (d *depcaps) Init() error {
+	var err error
+	d.once.Do(func() {
+		d.mu.Lock()
+		defer d.mu.Unlock()
 
-				if len(osArgs) > 0 {
-					packageNames = osArgs
-				}
-			}
+		// init std pkg list
+		var stdPkgs []*packages.Package
+		stdPkgs, err = packages.Load(&packages.Config{Tests: false}, "std")
+		if err != nil {
+			return // error is returned after the once.Do-block
+		}
 
-			var classifier analyzer.Classifier = analyzer.GetClassifier(true)
+		pre := func(pkg *packages.Package) bool {
+			d.stdSet[pkg.PkgPath] = struct{}{}
+			return true
+		}
+		packages.Visit(stdPkgs, pre, nil)
 
-			pkgs := analyzer.LoadPackages(packageNames,
+		// init moduleFile
+		d.moduleFile, err = module.GetModuleFile()
+		if err != nil {
+			return // err is returned after the once.Do-block
+		}
+
+		packageNames := []string{"."}
+		if d.flagArgs {
+			packageNames = flag.Args()
+		}
+		if len(d.args) > 0 {
+			packageNames = d.args
+		}
+
+		var classifier analyzer.Classifier = analyzer.GetClassifier(true)
+
+		pkgs := d.packages
+		if len(pkgs) == 0 {
+			pkgs = analyzer.LoadPackages(packageNames,
 				analyzer.LoadConfig{
 					// TODO: support BuildTags, GOOS and GOARCH?
 					// 	BuildTags: *buildTags,
@@ -111,22 +142,27 @@ func (d *depcaps) run(pass *analysis.Pass) (interface{}, error) {
 					// 	GOARCH:    *goarch,
 				},
 			)
-			if len(pkgs) == 0 {
-				err = fmt.Errorf("no packages matching %v", packageNames)
-				return // err is returned after the once.Do.block
-			}
-
-			queriedPackages := analyzer.GetQueriedPackages(pkgs)
-			cil = analyzer.GetCapabilityInfo(pkgs, queriedPackages, classifier)
-
-			err := readCapslockBaseline(d.CapslockBaselineFile)
-			if err != nil {
-				return // err is returned after the once.Do.block
-			}
-		})
-		if err != nil { // process error from packages.Load if executed once and it returned an error
-			return nil, err
 		}
+		if len(pkgs) == 0 {
+			err = fmt.Errorf("no packages matching %v", packageNames)
+			return // err is returned after the once.Do.block
+		}
+
+		queriedPackages := analyzer.GetQueriedPackages(pkgs)
+		d.cil = analyzer.GetCapabilityInfo(pkgs, queriedPackages, classifier)
+
+		err = d.readCapslockBaseline(d.CapslockBaselineFile)
+		if err != nil {
+			return // err is returned after the once.Do.block
+		}
+	})
+	return err // return err from once.Do-block
+}
+
+func (d *depcaps) run(pass *analysis.Pass) (interface{}, error) {
+	err := d.Init()
+	if err != nil {
+		return nil, err
 	}
 
 	if isTestPackage(pass) {
@@ -135,25 +171,25 @@ func (d *depcaps) run(pass *analysis.Pass) (interface{}, error) {
 
 	packageName := pass.Pkg.Path()
 	packagePrefix := pass.Pkg.Path()
-	if moduleFile != nil {
-		packagePrefix = getModulePath()
+	if d.moduleFile != nil {
+		packagePrefix = d.getModulePath()
 	}
 
-	mu.Lock()
-	defer mu.Unlock()
+	d.mu.Lock()
+	defer d.mu.Unlock()
 
 	offendingCapabilities := make(map[string]map[proto.Capability]struct{})
-	if baseline != nil {
-		offendingCapabilities = diffCapabilityInfoLists(baseline, cil, packageName, packagePrefix)
+	if d.baseline != nil {
+		offendingCapabilities = diffCapabilityInfoLists(d.baseline, d.cil, packageName, packagePrefix)
 	}
 
-	for _, ci := range cil.GetCapabilityInfo() {
+	for _, ci := range d.cil.GetCapabilityInfo() {
 		depPkg, skip := relevantCapabilityInfo(ci, packageName, packagePrefix)
 		if !skip {
 			continue
 		}
 
-		if _, ok := stdSet[depPkg]; ok {
+		if _, ok := d.stdSet[depPkg]; ok {
 			continue
 		}
 
@@ -171,7 +207,7 @@ func (d *depcaps) run(pass *analysis.Pass) (interface{}, error) {
 				continue
 			}
 		}
-		if baseline != nil {
+		if d.baseline != nil {
 			continue
 		}
 
@@ -198,7 +234,7 @@ func (d *depcaps) run(pass *analysis.Pass) (interface{}, error) {
 	return nil, nil
 }
 
-func readCapslockBaseline(capslockBaselineFile string) error {
+func (d *depcaps) readCapslockBaseline(capslockBaselineFile string) error {
 	if capslockBaselineFile == "" {
 		return nil
 	}
@@ -207,31 +243,25 @@ func readCapslockBaseline(capslockBaselineFile string) error {
 	if err != nil {
 		return fmt.Errorf("Error reading baseline file: %v", err)
 	}
-	baseline = &proto.CapabilityInfoList{}
-	err = protojson.Unmarshal(baselineData, baseline)
+	d.baseline = &proto.CapabilityInfoList{}
+	err = protojson.Unmarshal(baselineData, d.baseline)
 	if err != nil {
 		return fmt.Errorf("Baseline file should include output from running `capslock -output=j`. Error parsing baseline file: %v", err)
 	}
 	return nil
 }
 
-func getModulePath() string {
-	mu.Lock()
-	defer mu.Unlock()
+func (d *depcaps) getModulePath() string {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 
-	return moduleFile.Module.Mod.Path
+	return d.moduleFile.Module.Mod.Path
 }
 
 func isTestPackage(pass *analysis.Pass) bool {
 	if strings.HasSuffix(pass.Pkg.Path(), ".test") || strings.HasSuffix(pass.Pkg.Path(), "_test") {
 		return true
 	}
-
-	// for _, f := range pass.Files {
-	// 	if strings.HasSuffix(pass.Fset.File(f.Pos()).Name(), "_test.go") {
-	// 		return true
-	// 	}
-	// }
 
 	return false
 }

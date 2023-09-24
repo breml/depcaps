@@ -21,7 +21,9 @@ var (
 func main() {
 	depcaps.Version = buildVersion()
 
-	singlechecker.Main(depcaps.NewAnalyzer(nil))
+	analyzer := depcaps.New(nil).WithFlagArgs().AsAnalyzer()
+
+	singlechecker.Main(analyzer)
 }
 
 func buildVersion() string {
