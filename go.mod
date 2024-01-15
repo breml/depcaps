@@ -3,7 +3,7 @@ module github.com/breml/depcaps
 go 1.20
 
 require (
-	golang.org/x/tools v0.16.1
+	golang.org/x/tools v0.17.0
 	google.golang.org/protobuf v1.32.0
 )
 
