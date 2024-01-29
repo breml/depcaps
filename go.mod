@@ -15,7 +15,7 @@ require (
 
 require (
 	github.com/google/capslock v0.1.2-0.20230918150428-dff452901025
-	github.com/google/uuid v1.5.0
+	github.com/google/uuid v1.6.0
 	golang.org/x/mod v0.14.0
 	golang.org/x/sys v0.14.0 // indirect
 )
