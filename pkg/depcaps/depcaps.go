@@ -136,7 +136,7 @@ func (d *depcaps) Init() error {
 
 		pkgs := d.packages
 		if len(pkgs) == 0 {
-			pkgs = analyzer.LoadPackages(packageNames,
+			pkgs, err = analyzer.LoadPackages(packageNames,
 				analyzer.LoadConfig{
 					// TODO: support BuildTags, GOOS and GOARCH?
 					// 	BuildTags: *buildTags,
@@ -144,6 +144,9 @@ func (d *depcaps) Init() error {
 					// 	GOARCH:    *goarch,
 				},
 			)
+			if err != nil {
+				return
+			}
 		}
 		if len(pkgs) == 0 {
 			err = fmt.Errorf("no packages matching %v", packageNames)
@@ -151,7 +154,10 @@ func (d *depcaps) Init() error {
 		}
 
 		queriedPackages := analyzer.GetQueriedPackages(pkgs)
-		d.cil = analyzer.GetCapabilityInfo(pkgs, queriedPackages, classifier)
+		d.cil = analyzer.GetCapabilityInfo(pkgs, queriedPackages, &analyzer.Config{
+			Classifier:     classifier,
+			DisableBuiltin: false,
+		})
 
 		err = d.readCapslockBaseline(d.CapslockBaselineFile)
 		if err != nil {
