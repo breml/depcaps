@@ -1,6 +1,6 @@
 module alltest
 
-go 1.20
+go 1.21
 
 require (
 	github.com/google/capslock v0.1.2-0.20230918150428-dff452901025

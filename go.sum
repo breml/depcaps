@@ -1,7 +1,7 @@
 github.com/fatih/color v1.16.0 h1:zmkK9Ngbjj+K0yRhTVONQh1p/HknKYSlNT+vZCzyokM=
 github.com/fatih/color v1.16.0/go.mod h1:fL2Sau1YI5c0pdGEVCbKQbLXB6edEj1ZgiY4NijnWvE=
-github.com/google/capslock v0.2.0 h1:HKhH0O7qNs3fDLjVjs4puLUtHsracFacyO297VB7Oy0=
-github.com/google/capslock v0.2.0/go.mod h1:gJgtOzP5yr4SziFmu2s6UrF+vh1nlQ2xCdwZiDPzw5g=
+github.com/google/capslock v0.2.1 h1:VeGDTfDtm8xph4U/cSsGGk3/JVH0uH2CcFP1mbv1f/0=
+github.com/google/capslock v0.2.1/go.mod h1:S82vlxcqH3xZkRe7ub8lPqfJH5063X4EY3s/KGoM0nA=
 github.com/google/go-cmp v0.6.0 h1:ofyhxvXcZhMsU5ulbFiLKl/XBFqE1GSq7atu8tAmTRI=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
 github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
