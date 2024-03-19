@@ -3,7 +3,7 @@ module github.com/breml/depcaps
 go 1.21
 
 require (
-	golang.org/x/tools v0.19.0
+	golang.org/x/tools v0.19.1-0.20240311201356-ca94c9663f9a
 	google.golang.org/protobuf v1.33.0
 )
 
@@ -14,7 +14,7 @@ require (
 )
 
 require (
-	github.com/google/capslock v0.2.1
+	github.com/google/capslock v0.2.2
 	github.com/google/uuid v1.6.0
 	golang.org/x/mod v0.16.0
 	golang.org/x/sys v0.18.0 // indirect
