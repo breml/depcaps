@@ -1,161 +1,187 @@
 {
-	"capabilityInfo": [
+	"capabilityInfo":  [
 		{
-			"packageName": "main",
-			"capability": "CAPABILITY_FILES",
-			"depPath": "alltest/capslockfile.main github.com/google/uuid.GetTime github.com/google/uuid.getTime github.com/google/uuid.setClockSequence github.com/google/uuid.randomBits io.ReadFull io.ReadAtLeast (*os.File).Read",
-			"path": [
+			"packageName":  "main",
+			"capability":  "CAPABILITY_REFLECT",
+			"depPath":  "alltest/capslockfile.init github.com/google/uuid.init database/sql/driver.init reflect.TypeFor[database/sql/driver.Valuer]",
+			"path":  [
 				{
-					"name": "alltest/capslockfile.main"
+					"name":  "alltest/capslockfile.init"
 				},
 				{
-					"name": "github.com/google/uuid.GetTime",
-					"site": {
-						"filename": "capslockfile.go",
-						"line": "8",
-						"column": "14"
-					}
+					"name":  "github.com/google/uuid.init"
 				},
 				{
-					"name": "github.com/google/uuid.getTime",
-					"site": {
-						"filename": "time.go",
-						"line": "48",
-						"column": "16"
-					}
+					"name":  "database/sql/driver.init"
 				},
 				{
-					"name": "github.com/google/uuid.setClockSequence",
-					"site": {
-						"filename": "time.go",
-						"line": "56",
-						"column": "19"
-					}
-				},
-				{
-					"name": "github.com/google/uuid.randomBits",
-					"site": {
-						"filename": "time.go",
-						"line": "100",
-						"column": "13"
-					}
-				},
-				{
-					"name": "io.ReadFull",
-					"site": {
-						"filename": "util.go",
-						"line": "13",
-						"column": "26"
-					}
-				},
-				{
-					"name": "io.ReadAtLeast",
-					"site": {
-						"filename": "io.go",
-						"line": "351",
-						"column": "20"
-					}
-				},
-				{
-					"name": "(*os.File).Read",
-					"site": {
-						"filename": "io.go",
-						"line": "332",
-						"column": "19"
+					"name":  "reflect.TypeFor[database/sql/driver.Valuer]",
+					"site":  {
+						"filename":  "types.go",
+						"line":  "215",
+						"column":  "48"
 					}
 				}
 			],
-			"packageDir": "alltest/capslockfile",
-			"capabilityType": "CAPABILITY_TYPE_TRANSITIVE"
+			"packageDir":  "alltest/capslockfile",
+			"capabilityType":  "CAPABILITY_TYPE_TRANSITIVE"
 		},
 		{
-			"packageName": "main",
-			"capability": "CAPABILITY_NETWORK",
-			"depPath": "alltest/capslockfile.main github.com/google/uuid.GetTime github.com/google/uuid.getTime github.com/google/uuid.setClockSequence github.com/google/uuid.randomBits io.ReadFull io.ReadAtLeast (*net.IPConn).Read (*net.conn).Read",
-			"path": [
+			"packageName":  "main",
+			"capability":  "CAPABILITY_NETWORK",
+			"depPath":  "alltest/capslockfile.main github.com/google/uuid.GetTime github.com/google/uuid.getTime github.com/google/uuid.setClockSequence github.com/google/uuid.randomBits io.ReadFull io.ReadAtLeast (*net.TCPConn).Read (*net.conn).Read",
+			"path":  [
 				{
-					"name": "alltest/capslockfile.main"
+					"name":  "alltest/capslockfile.main"
 				},
 				{
-					"name": "github.com/google/uuid.GetTime",
-					"site": {
-						"filename": "capslockfile.go",
-						"line": "8",
-						"column": "14"
+					"name":  "github.com/google/uuid.GetTime",
+					"site":  {
+						"filename":  "capslockfile.go",
+						"line":  "8",
+						"column":  "14"
 					}
 				},
 				{
-					"name": "github.com/google/uuid.getTime",
-					"site": {
-						"filename": "time.go",
-						"line": "48",
-						"column": "16"
+					"name":  "github.com/google/uuid.getTime",
+					"site":  {
+						"filename":  "time.go",
+						"line":  "48",
+						"column":  "16"
 					}
 				},
 				{
-					"name": "github.com/google/uuid.setClockSequence",
-					"site": {
-						"filename": "time.go",
-						"line": "56",
-						"column": "19"
+					"name":  "github.com/google/uuid.setClockSequence",
+					"site":  {
+						"filename":  "time.go",
+						"line":  "56",
+						"column":  "19"
 					}
 				},
 				{
-					"name": "github.com/google/uuid.randomBits",
-					"site": {
-						"filename": "time.go",
-						"line": "100",
-						"column": "13"
+					"name":  "github.com/google/uuid.randomBits",
+					"site":  {
+						"filename":  "time.go",
+						"line":  "100",
+						"column":  "13"
 					}
 				},
 				{
-					"name": "io.ReadFull",
-					"site": {
-						"filename": "util.go",
-						"line": "13",
-						"column": "26"
+					"name":  "io.ReadFull",
+					"site":  {
+						"filename":  "util.go",
+						"line":  "13",
+						"column":  "26"
 					}
 				},
 				{
-					"name": "io.ReadAtLeast",
-					"site": {
-						"filename": "io.go",
-						"line": "351",
-						"column": "20"
+					"name":  "io.ReadAtLeast",
+					"site":  {
+						"filename":  "io.go",
+						"line":  "354",
+						"column":  "20"
 					}
 				},
 				{
-					"name": "(*net.IPConn).Read",
-					"site": {
-						"filename": "io.go",
-						"line": "332",
-						"column": "19"
+					"name":  "(*net.TCPConn).Read",
+					"site":  {
+						"filename":  "io.go",
+						"line":  "335",
+						"column":  "19"
 					}
 				},
 				{
-					"name": "(*net.conn).Read"
+					"name":  "(*net.conn).Read"
 				}
 			],
-			"packageDir": "alltest/capslockfile",
-			"capabilityType": "CAPABILITY_TYPE_TRANSITIVE"
+			"packageDir":  "alltest/capslockfile",
+			"capabilityType":  "CAPABILITY_TYPE_TRANSITIVE"
+		},
+		{
+			"packageName":  "main",
+			"capability":  "CAPABILITY_FILES",
+			"depPath":  "alltest/capslockfile.main github.com/google/uuid.GetTime github.com/google/uuid.getTime github.com/google/uuid.setClockSequence github.com/google/uuid.randomBits io.ReadFull io.ReadAtLeast (*os.File).Read",
+			"path":  [
+				{
+					"name":  "alltest/capslockfile.main"
+				},
+				{
+					"name":  "github.com/google/uuid.GetTime",
+					"site":  {
+						"filename":  "capslockfile.go",
+						"line":  "8",
+						"column":  "14"
+					}
+				},
+				{
+					"name":  "github.com/google/uuid.getTime",
+					"site":  {
+						"filename":  "time.go",
+						"line":  "48",
+						"column":  "16"
+					}
+				},
+				{
+					"name":  "github.com/google/uuid.setClockSequence",
+					"site":  {
+						"filename":  "time.go",
+						"line":  "56",
+						"column":  "19"
+					}
+				},
+				{
+					"name":  "github.com/google/uuid.randomBits",
+					"site":  {
+						"filename":  "time.go",
+						"line":  "100",
+						"column":  "13"
+					}
+				},
+				{
+					"name":  "io.ReadFull",
+					"site":  {
+						"filename":  "util.go",
+						"line":  "13",
+						"column":  "26"
+					}
+				},
+				{
+					"name":  "io.ReadAtLeast",
+					"site":  {
+						"filename":  "io.go",
+						"line":  "354",
+						"column":  "20"
+					}
+				},
+				{
+					"name":  "(*os.File).Read",
+					"site":  {
+						"filename":  "io.go",
+						"line":  "335",
+						"column":  "19"
+					}
+				}
+			],
+			"packageDir":  "alltest/capslockfile",
+			"capabilityType":  "CAPABILITY_TYPE_TRANSITIVE"
 		}
 	],
-	"moduleInfo": [
+	"moduleInfo":  [
 		{
-			"path": "github.com/google/uuid",
-			"version": "v1.3.1"
+			"path":  "github.com/google/uuid",
+			"version":  "v1.3.1"
 		}
 	],
-	"packageInfo": [
+	"packageInfo":  [
 		{
-			"path": "alltest/capslockfile",
-			"ignoredFiles": [
+			"path":  "alltest/capslockfile",
+			"ignoredFiles":  [
 				"tools.go"
 			]
 		},
 		{
-			"path": "github.com/google/uuid",
-			"ignoredFiles": [
+			"path":  "github.com/google/uuid",
+			"ignoredFiles":  [
 				"node_js.go"
 			]
 		}

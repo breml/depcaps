@@ -3,8 +3,6 @@ package depcaps_test
 import (
 	"os"
 	"path/filepath"
-	"runtime"
-	"strings"
 	"testing"
 
 	// unused import of "github.com/google/uuid" to workaround GOPROXY=no in
@@ -91,7 +89,7 @@ func TestAll(t *testing.T) {
 		{
 			name: "capslock file",
 			linterSettings: &depcaps.LinterSettings{
-				CapslockBaselineFile: "capslockfile/capslock" + versionSuffix() + ".json",
+				CapslockBaselineFile: "capslockfile/capslock.json",
 			},
 			testdataDir: "alltest",
 			packages:    []string{"./capslockfile/..."},
@@ -129,11 +127,4 @@ func TestAll(t *testing.T) {
 			analysistest.Run(t, testCaseDir, depcapsLinter.AsAnalyzer(false), tc.packages...)
 		})
 	}
-}
-
-func versionSuffix() string {
-	if strings.HasPrefix(runtime.Version(), "go1.22") {
-		return "_go122"
-	}
-	return ""
 }
