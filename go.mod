@@ -6,7 +6,7 @@ toolchain go1.22.6
 
 require (
 	golang.org/x/tools v0.25.0
-	google.golang.org/protobuf v1.34.2
+	google.golang.org/protobuf v1.35.1
 )
 
 require (
