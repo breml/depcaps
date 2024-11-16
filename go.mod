@@ -1,6 +1,7 @@
 module github.com/breml/depcaps
 
-go 1.22.0
+go 1.23.3
+
 require (
 	golang.org/x/tools v0.27.0
 	google.golang.org/protobuf v1.35.1
